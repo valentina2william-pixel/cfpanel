@@ -18,16 +18,29 @@ jobs:
       - name: Android SDK
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
       - name: Compilar APK debug
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: |
+          set +e
+          gradle assembleDebug --no-daemon --stacktrace > build.log 2>&1
+          CODE=$?
+          echo "## Resultado: exit $CODE" >> $GITHUB_STEP_SUMMARY
+          if [ $CODE -ne 0 ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -60 build.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          exit $CODE
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: CF-Panel-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            build.log
